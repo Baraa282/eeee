@@ -31,19 +31,34 @@
             --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
 
+        .beige {
+            --primary: #8B5A2B; /* Earthy brown for contrast */
+            --primary-dark: #6B4423;
+            --text: #4A2F1A; /* Darker brown text */
+            --bg: #F5F5DC; /* Light beige background */
+            --card: #EEE8AA; /* Pale yellow-beige cards */
+            --border: #D2B48C; /* Tan border */
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             min-height: 100vh;
             background-color: var(--bg);
             color: var(--text);
             font-family: 'Roboto', sans-serif;
+            -webkit-transition: var(--transition);
             transition: var(--transition);
         }
 
         .arabic-text {
             font-family: var(--arabic-font);
             direction: rtl;
-            font-size: 1.5rem; /* text-2xl */
-            line-height: 2; /* leading-loose */
+            font-size: 1.5rem;
+            line-height: 2;
         }
 
         .header {
@@ -57,11 +72,11 @@
         }
 
         .content-container {
-            padding-top: 5rem; /* pt-20 */
-            padding-bottom: 6rem; /* pb-24 */
-            padding-left: 1rem; /* px-4 */
+            padding-top: 5rem;
+            padding-bottom: 6rem;
+            padding-left: 1rem;
             padding-right: 1rem;
-            max-width: 56rem; /* max-w-4xl */
+            max-width: 56rem;
             margin-left: auto;
             margin-right: auto;
         }
@@ -81,7 +96,25 @@
             border: 1px solid var(--border);
             padding: 1rem;
             box-shadow: var(--shadow);
+            -webkit-transition: var(--transition);
             transition: var(--transition);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text);
+            cursor: pointer;
+            -webkit-transition: var(--transition);
+            transition: var(--transition);
+        }
+
+        .close-btn:hover {
+            color: var(--primary-dark);
         }
 
         .ayah-container {
@@ -90,6 +123,7 @@
             border: 1px solid var(--border);
             margin-bottom: 1rem;
             cursor: pointer;
+            -webkit-transition: var(--transition);
             transition: var(--transition);
         }
 
@@ -108,6 +142,7 @@
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 0.5rem 0.75rem;
+            -webkit-transition: var(--transition);
             transition: var(--transition);
         }
 
@@ -123,6 +158,7 @@
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
             font-weight: 500;
+            -webkit-transition: var(--transition);
             transition: var(--transition);
         }
 
@@ -141,6 +177,7 @@
             align-items: center;
             padding: 0.5rem;
             color: var(--text);
+            -webkit-transition: color 0.2s;
             transition: color 0.2s;
         }
 
@@ -159,12 +196,13 @@
 
         .settings-panel, .search-panel {
             position: fixed;
-            bottom: 4rem; /* bottom-16 */
+            bottom: 4rem;
             left: 0;
             right: 0;
             background-color: var(--card);
             border-top: 1px solid var(--border);
             transform: translateY(100%);
+            -webkit-transition: transform 0.3s ease;
             transition: transform 0.3s ease;
         }
 
@@ -204,6 +242,8 @@
             height: 0.5rem;
             background-color: var(--border);
             border-radius: 9999px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
             appearance: none;
         }
 
@@ -212,7 +252,16 @@
             height: 1.25rem;
             background-color: var(--primary);
             border-radius: 9999px;
-            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 1.25rem;
+            height: 1.25rem;
+            background-color: var(--primary);
+            border-radius: 9999px;
+            border: none;
             cursor: pointer;
         }
 
@@ -233,11 +282,12 @@
             padding: 0.75rem;
             border-radius: 0.5rem;
             cursor: pointer;
+            -webkit-transition: background-color 0.2s;
             transition: background-color 0.2s;
         }
 
         .search-result:hover {
-            background-color: #F3F4F6; /* Approximation of hover:bg-card-hover */
+            background-color: rgba(var(--primary), 0.1);
         }
 
         .search-result mark {
@@ -247,10 +297,10 @@
 
         @media (min-width: 768px) {
             .arabic-text {
-                font-size: 1.875rem; /* text-3xl */
+                font-size: 1.875rem;
             }
             .content-container {
-                padding-left: 1.5rem; /* px-6 */
+                padding-left: 1.5rem;
                 padding-right: 1.5rem;
             }
         }
@@ -276,10 +326,12 @@
             <div class="flex justify-center my-8">
                 <div class="spinner"></div>
             </div>
+            <button id="play-all" class="mt-4 hidden">Play All Ayahs</button>
         </div>
     </main>
 
-    <div id="settings-panel" class="settings-panel p-4">
+    <div id="settings-panel" class="settings-panel p-4 relative">
+        <button id="close-settings" class="close-btn">&times;</button>
         <h2 class="text-lg font-bold mb-4">Settings</h2>
         <div class="space-y-4">
             <div>
@@ -299,6 +351,7 @@
                 <div class="flex space-x-2">
                     <button id="light-mode" class="flex-1">Light</button>
                     <button id="dark-mode" class="flex-1">Dark</button>
+                    <button id="beige-mode" class="flex-1">Beige</button>
                 </div>
             </div>
             <div>
@@ -366,11 +419,14 @@
         const reciterSelect = document.getElementById('reciter-select');
         const lightModeBtn = document.getElementById('light-mode');
         const darkModeBtn = document.getElementById('dark-mode');
+        const beigeModeBtn = document.getElementById('beige-mode');
         const settingsPanel = document.getElementById('settings-panel');
+        const closeSettingsBtn = document.getElementById('close-settings');
         const searchPanel = document.getElementById('search-panel');
         const searchInput = document.getElementById('search-input');
         const searchButton = document.getElementById('search-button');
         const searchResults = document.getElementById('search-results');
+        const playAllBtn = document.getElementById('play-all');
 
         const settingsNav = document.getElementById('settings-nav');
         const bookNav = document.getElementById('book-nav');
@@ -381,7 +437,7 @@
         let currentAyah = 1;
         let showTranslation = true;
         let audioPlayer = null;
-        let isAutoPlaying = true;
+        let isAutoPlaying = false;
         let currentTranslation = 'en.yusufali';
         let currentReciter = 'ar.alafasy';
         let fontSize = 22;
@@ -449,7 +505,7 @@
                 totalAyahs = quranData.data.ayahs.length;
                 updateAyahSelect(totalAyahs);
                 displaySurah(quranData.data, translationData.data);
-                if (isAutoPlaying) playAyah(currentSurah, 1);
+                playAllBtn.classList.remove('hidden');
             })
             .catch(error => {
                 console.error('Error loading surah:', error);
@@ -505,6 +561,7 @@
             }
             
             surahContainer.innerHTML = html;
+            surahContainer.appendChild(playAllBtn);
             
             document.querySelectorAll('.ayah-container').forEach(container => {
                 container.addEventListener('click', () => {
@@ -536,6 +593,7 @@
                     const audioSrc = data.data.audio;
                     audioPlayer = new Audio(audioSrc);
                     audioPlayer.setAttribute('data-ayah', ayah);
+                    audioPlayer.preload = 'auto';
                     
                     audioPlayer.oncanplay = () => {
                         audioPlayer.play()
@@ -543,6 +601,7 @@
                             .catch(error => {
                                 console.error('Playback error:', error);
                                 if (container) container.classList.remove('playing');
+                                alert('Audio playback failed. Please try again.');
                             });
                     };
                     
@@ -560,6 +619,7 @@
                         console.error('Audio loading error');
                         if (container) container.classList.remove('playing');
                         audioPlayer = null;
+                        alert('Error loading audio. Please check your connection.');
                     };
                 })
                 .catch(error => {
@@ -589,12 +649,19 @@
             
             searchResults.innerHTML = `<div class="flex justify-center my-4"><div class="spinner"></div></div>`;
             
-            fetch(`${API_BASE_URL}/search/${encodeURIComponent(query)}/all/${currentTranslation}`)
+            const searchUrl = `${API_BASE_URL}/search/${encodeURIComponent(query)}/${currentTranslation}`;
+            console.log('Search URL:', searchUrl);
+            
+            fetch(searchUrl)
                 .then(response => {
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     return response.json();
                 })
                 .then(data => {
+                    console.log('Search API response:', data);
+                    if (!data.data || !data.data.matches) {
+                        throw new Error('Invalid search response structure');
+                    }
                     const results = data.data.matches.map(match => ({
                         surah: match.surah.number,
                         ayah: match.numberInSurah,
@@ -604,7 +671,7 @@
                 })
                 .catch(error => {
                     console.error('Error searching:', error);
-                    searchResults.innerHTML = `<p class="text-red-600">Error performing search: ${error.message}</p>`;
+                    searchResults.innerHTML = `<p class="text-red-600">Error: ${error.message}. Please try again or check your connection.</p>`;
                 });
         }
 
@@ -652,7 +719,6 @@
         function setupEventListeners() {
             surahSelect.addEventListener('change', () => {
                 if (surahSelect.value) {
-                    isAutoPlaying = true;
                     loadSurah(parseInt(surahSelect.value));
                 }
             });
@@ -696,19 +762,30 @@
             });
             
             lightModeBtn.addEventListener('click', () => {
-                document.body.classList.remove('dark');
+                document.body.classList.remove('dark', 'beige');
                 localStorage.setItem('theme', 'light');
             });
             
             darkModeBtn.addEventListener('click', () => {
+                document.body.classList.remove('beige');
                 document.body.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
+            });
+            
+            beigeModeBtn.addEventListener('click', () => {
+                document.body.classList.remove('dark');
+                document.body.classList.add('beige');
+                localStorage.setItem('theme', 'beige');
             });
             
             settingsNav.addEventListener('click', () => {
                 settingsPanel.classList.toggle('active');
                 searchPanel.classList.remove('active');
                 setActiveNavItem(settingsNav);
+            });
+            
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsPanel.classList.remove('active');
             });
             
             bookNav.addEventListener('click', () => {
@@ -740,6 +817,11 @@
             searchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchQuran(searchInput.value);
             });
+
+            playAllBtn.addEventListener('click', () => {
+                isAutoPlaying = true;
+                playAyah(currentSurah, 1);
+            });
         }
 
         function setActiveNavItem(activeItem) {
@@ -750,6 +832,7 @@
         function initializeSettings() {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark');
+            else if (savedTheme === 'beige') document.body.classList.add('beige');
             
             const savedFontSize = localStorage.getItem('fontSize');
             if (savedFontSize) {
