@@ -266,7 +266,6 @@
                 <select id="surah-select" class="text-sm"></select>
                 <select id="ayah-select" class="text-sm"></select>
             </div>
-            <h1 class="text-2xl font-bold text-[var(--primary)]">Quran Reader</h1>
         </div>
     </header>
 
@@ -275,7 +274,6 @@
             <div class="flex justify-center my-8">
                 <div class="spinner"></div>
             </div>
-            <button id="play-all" class="mt-4 hidden">Play All Ayahs</button>
         </div>
     </main>
 
@@ -320,6 +318,9 @@
                     <option value="ar.abdulbasitmurattal">Abdul Basit Murattal</option>
                     <option value="ar.husary">Mahmoud Khalil Al-Husary</option>
                 </select>
+            </div>
+            <div class="card">
+                <button id="play-all" class="w-full">Play All Ayahs</button>
             </div>
         </div>
     </div>
@@ -376,7 +377,7 @@
         let fontSize = 22;
         let fontType = "'Scheherazade New', serif";
         let totalAyahs = 0;
-        let favorites = [];
+        let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
 
         const API_BASE_URL = 'https://api.alquran.cloud/v1';
 
@@ -401,7 +402,8 @@
                         surahSelect.appendChild(option);
                     });
                     loadSurah(currentSurah);
-                });
+                })
+                .catch(error => console.error('Error loading surahs:', error));
         }
 
         function loadSurah(surahNumber) {
@@ -417,8 +419,8 @@
                 totalAyahs = quranData.data.ayahs.length;
                 updateAyahSelect(totalAyahs);
                 displaySurah(quranData.data, translationData.data);
-                playAllBtn.classList.remove('hidden');
-            });
+            })
+            .catch(error => console.error('Error loading surah:', error));
         }
 
         function updateAyahSelect(verseCount) {
@@ -462,7 +464,6 @@
                 `;
             });
             surahContainer.innerHTML = html;
-            surahContainer.appendChild(playAllBtn);
             setupAyahListeners();
         }
 
@@ -483,7 +484,8 @@
                         if (isAutoPlaying && ayah < totalAyahs) playAyah(surah, ayah + 1);
                         else audioPlayer = null;
                     };
-                });
+                })
+                .catch(error => console.error('Error playing ayah:', error));
         }
 
         function toggleAyahAudio(surah, ayah, container) {
@@ -598,7 +600,6 @@
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark');
             else if (savedTheme === 'beige') document.body.classList.add('beige');
-            favorites = JSON.parse(localStorage.getItem('favorites')) || [];
             lightModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'light'));
             darkModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'dark'));
             beigeModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'beige'));
@@ -609,20 +610,42 @@
             if (favorites.length === 0) {
                 html += '<p class="text-center text-[var(--secondary)]">No favorite ayahs yet</p>';
             } else {
-                favorites.forEach(fav => {
-                    html += `
-                        <div class="ayah-container" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
-                            <div class="flex items-start space-x-4">
-                                <span class="ayah-number text-[var(--primary)] font-bold">${fav.ayah}</span>
-                                <div class="flex-1">
-                                    <p>Loading...</p>
+                const fetchPromises = favorites.map(fav => 
+                    Promise.all([
+                        fetch(`${API_BASE_URL}/ayah/${fav.surah}:${fav.ayah}`),
+                        fetch(`${API_BASE_URL}/ayah/${fav.surah}:${fav.ayah}/${currentTranslation}`)
+                    ])
+                    .then(responses => Promise.all(responses.map(res => res.json())))
+                );
+
+                Promise.all(fetchPromises)
+                    .then(results => {
+                        results.forEach(([arabicData, transData], index) => {
+                            const fav = favorites[index];
+                            html += `
+                                <div class="ayah-container" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
+                                    <div class="flex items-start space-x-4">
+                                        <span class="ayah-number text-[var(--primary)] font-bold">${fav.surah}:${fav.ayah}</span>
+                                        <div class="flex-1">
+                                            <p class="arabic-text" style="font-family: ${fontType}; font-size: ${fontSize}px">${arabicData.data.text}</p>
+                                            ${showTranslation ? `<p class="mt-2 text-sm text-[var(--secondary)]">${transData.data.text}</p>` : ''}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    `;
-                });
+                            `;
+                        });
+                        surahContainer.innerHTML = html;
+                        setupFavoriteListeners();
+                    })
+                    .catch(error => {
+                        console.error('Error loading favorites:', error);
+                        surahContainer.innerHTML = html + '<p class="text-center text-[var(--secondary)]">Error loading favorites</p>';
+                    });
             }
             surahContainer.innerHTML = html;
+        }
+
+        function setupFavoriteListeners() {
             document.querySelectorAll('.ayah-container').forEach(container => {
                 container.addEventListener('click', () => {
                     const surah = parseInt(container.dataset.surah);
@@ -659,6 +682,15 @@
                     searchQuran(query, searchResults);
                 }
             });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = searchInput.value.trim();
+                    if (query) {
+                        searchQuran(query, searchResults);
+                    }
+                }
+            });
         }
 
         function searchQuran(query, resultsContainer) {
@@ -686,6 +718,10 @@
                     } else {
                         resultsContainer.innerHTML = '<p class="text-center text-[var(--secondary)]">No results found</p>';
                     }
+                })
+                .catch(error => {
+                    console.error('Error searching Quran:', error);
+                    resultsContainer.innerHTML = '<p class="text-center text-[var(--secondary)]">Error occurred while searching</p>';
                 });
         }
 
