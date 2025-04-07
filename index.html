@@ -257,11 +257,11 @@
             to { transform: rotate(360deg); }
         }
 
-        .favorite-btn {
+        .heart-btn {
             background: none;
             border: none;
             padding: 0.5rem;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             cursor: pointer;
             transition: all 0.3s ease;
             border-radius: 50%;
@@ -271,18 +271,19 @@
             width: 2.5rem;
             height: 2.5rem;
             color: #9CA3AF;
+            z-index: 10;
         }
 
-        .favorite-btn:hover {
+        .heart-btn:hover {
             background-color: rgba(239, 68, 68, 0.1);
             transform: scale(1.1);
         }
 
-        .favorite-btn.active {
+        .heart-btn.favorited {
             color: var(--favorite-color);
         }
 
-        .favorite-btn.active i {
+        .heart-btn.favorited i {
             animation: heartBeat 0.3s;
         }
 
@@ -292,7 +293,7 @@
             100% { transform: scale(1); }
         }
 
-        .remove-favorite {
+        .remove-btn {
             position: absolute;
             top: 0.75rem;
             right: 0.75rem;
@@ -310,11 +311,11 @@
             z-index: 10;
         }
 
-        .ayah-container:hover .remove-favorite {
+        .ayah-container:hover .remove-btn {
             opacity: 1;
         }
 
-        .remove-favorite:hover {
+        .remove-btn:hover {
             background: rgba(239, 68, 68, 0.2);
             transform: scale(1.1);
         }
@@ -329,6 +330,25 @@
             font-size: 3rem;
             margin-bottom: 1rem;
             color: var(--border);
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(31, 41, 55, 0.9);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .notification.show {
+            opacity: 1;
         }
 
         @media (min-width: 768px) {
@@ -387,8 +407,11 @@
                 <label class="block mb-2 font-medium">Translation</label>
                 <select id="translation-select" class="w-full">
                     <option value="ar.muyassar">الميسر</option>
-                    <option value="en.yusufali" selected>Yusuf Ali (English)</option>
+                    <option value="sw.barwani" selected>Swedish</option>
                     <option value="en.asad">Asad (English)</option>
+                    <option value="fr.hamidullah" selected>French </option>
+                    <option value="tr.ates">Turkish</option>
+                    
                     <option value="ur.junagarhi">Junagarhi (Urdu)</option>
                 </select>
                 <button id="toggle-translation" class="mt-3 w-full">Hide Translation</button>
@@ -397,6 +420,9 @@
                 <label class="block mb-2 font-medium">Reciter</label>
                 <select id="reciter-select" class="w-full">
                     <option value="ar.alafasy">Mishary Rashid Alafasy</option>
+                    <option value="ar.shaatree">Alshartree</option>
+                    <option value="ar.ahmedajamy">Ahmedalajami</option>
+                   <option value="ar.saoodshuraym">Alshurem</option>
                     <option value="ar.abdulbasitmurattal">Abdul Basit Murattal</option>
                     <option value="ar.husary">Mahmoud Khalil Al-Husary</option>
                 </select>
@@ -406,6 +432,8 @@
             </div>
         </div>
     </div>
+
+    <div id="notification" class="notification"></div>
 
     <nav class="footer-nav">
         <div class="grid grid-cols-4">
@@ -429,6 +457,7 @@
     </nav>
 
     <script>
+        // DOM Elements
         const surahSelect = document.getElementById('surah-select');
         const ayahSelect = document.getElementById('ayah-select');
         const surahContainer = document.getElementById('surah-container');
@@ -448,7 +477,9 @@
         const bookNav = document.getElementById('book-nav');
         const favoritesNav = document.getElementById('favorites-nav');
         const searchNav = document.getElementById('search-nav');
+        const notificationEl = document.getElementById('notification');
 
+        // State variables
         let currentSurah = 1;
         let currentAyah = 1;
         let showTranslation = true;
@@ -459,10 +490,22 @@
         let fontSize = 22;
         let fontType = "'Scheherazade New', serif";
         let totalAyahs = 0;
-        let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        
+        // Load favorites from localStorage
+        let favorites = [];
+        try {
+            const savedFavorites = localStorage.getItem('quran_favorites');
+            if (savedFavorites) {
+                favorites = JSON.parse(savedFavorites);
+            }
+        } catch (e) {
+            console.error('Error loading favorites:', e);
+            favorites = [];
+        }
 
         const API_BASE_URL = 'https://api.alquran.cloud/v1';
 
+        // Initialize app
         document.addEventListener('DOMContentLoaded', init);
 
         function init() {
@@ -471,6 +514,7 @@
             initializeSettings();
         }
 
+        // Load surahs from API
         function loadSurahs() {
             fetch(`${API_BASE_URL}/meta`)
                 .then(response => response.json())
@@ -485,9 +529,13 @@
                     });
                     loadSurah(currentSurah);
                 })
-                .catch(error => console.error('Error loading surahs:', error));
+                .catch(error => {
+                    console.error('Error loading surahs:', error);
+                    showNotification('Error loading surahs. Please try again.');
+                });
         }
 
+        // Load specific surah
         function loadSurah(surahNumber) {
             surahContainer.innerHTML = `<div class="flex justify-center my-8"><div class="spinner"></div></div>`;
             Promise.all([
@@ -502,9 +550,13 @@
                 updateAyahSelect(totalAyahs);
                 displaySurah(quranData.data, translationData.data);
             })
-            .catch(error => console.error('Error loading surah:', error));
+            .catch(error => {
+                console.error('Error loading surah:', error);
+                surahContainer.innerHTML = '<p class="text-center text-red-500">Error loading surah. Please try again.</p>';
+            });
         }
 
+        // Update ayah select dropdown
         function updateAyahSelect(verseCount) {
             ayahSelect.innerHTML = '<option value="">Select Ayah</option>';
             for (let i = 1; i <= verseCount; i++) {
@@ -515,6 +567,7 @@
             }
         }
 
+        // Display surah content
         function displaySurah(quranData, translationData) {
             const surah = quranData;
             let html = `
@@ -524,10 +577,15 @@
                     <p class="text-sm text-[var(--secondary)]">${surah.englishNameTranslation} • ${surah.revelationType} • ${surah.numberOfAyahs} Verses</p>
                 </div>
             `;
-            if (surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</div>`;
+            
+            if (surah.number !== 9) {
+                html += `<div class="bismillah">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</div>`;
+            }
+            
             surah.ayahs.forEach((verse, i) => {
                 const translationVerse = translationData.ayahs[i];
-                const isFavorite = favorites.some(fav => fav.surah === currentSurah && fav.ayah === verse.numberInSurah);
+                const isFavorite = isFavorited(currentSurah, verse.numberInSurah);
+                
                 html += `
                     <div id="ayah-${verse.numberInSurah}" class="ayah-container" data-ayah="${verse.numberInSurah}">
                         <div class="flex items-start space-x-4">
@@ -536,24 +594,31 @@
                                 <p class="arabic-text" style="font-family: ${fontType}; font-size: ${fontSize}px">${verse.text}</p>
                                 ${showTranslation ? `<p class="mt-2 text-sm text-[var(--secondary)]">${translationVerse.text}</p>` : ''}
                             </div>
-                            <button class="favorite-btn ${isFavorite ? 'active' : ''}" 
-                                    data-surah="${currentSurah}" 
-                                    data-ayah="${verse.numberInSurah}">
+                            <button class="heart-btn ${isFavorite ? 'favorited' : ''}" 
+                                    onclick="toggleFavorite(event, ${currentSurah}, ${verse.numberInSurah}, this)">
                                 <i class="fas fa-heart"></i>
                             </button>
                         </div>
                     </div>
                 `;
             });
+            
             surahContainer.innerHTML = html;
             setupAyahListeners();
         }
 
+        // Play audio for an ayah
         function playAyah(surah, ayah) {
-            if (audioPlayer) audioPlayer.pause();
+            if (audioPlayer) {
+                audioPlayer.pause();
+            }
+            
             document.querySelectorAll('.ayah-container').forEach(c => c.classList.remove('playing'));
             const container = document.getElementById(`ayah-${ayah}`);
-            if (container) container.classList.add('playing');
+            if (container) {
+                container.classList.add('playing');
+            }
+            
             const audioUrl = `${API_BASE_URL}/ayah/${surah}:${ayah}/${currentReciter}`;
             fetch(audioUrl)
                 .then(response => response.json())
@@ -563,13 +628,20 @@
                     audioPlayer.play();
                     audioPlayer.onended = () => {
                         container.classList.remove('playing');
-                        if (isAutoPlaying && ayah < totalAyahs) playAyah(surah, ayah + 1);
-                        else audioPlayer = null;
+                        if (isAutoPlaying && ayah < totalAyahs) {
+                            playAyah(surah, ayah + 1);
+                        } else {
+                            audioPlayer = null;
+                        }
                     };
                 })
-                .catch(error => console.error('Error playing ayah:', error));
+                .catch(error => {
+                    console.error('Error playing ayah:', error);
+                    showNotification('Error playing audio. Please try again.');
+                });
         }
 
+        // Toggle audio playback
         function toggleAyahAudio(surah, ayah, container) {
             if (audioPlayer && audioPlayer.getAttribute('data-ayah') === ayah.toString() && !audioPlayer.paused) {
                 audioPlayer.pause();
@@ -582,55 +654,100 @@
             }
         }
 
+        // Setup ayah click listeners
         function setupAyahListeners() {
             document.querySelectorAll('.ayah-container').forEach(container => {
                 container.addEventListener('click', (e) => {
-                    if (e.target.closest('.favorite-btn')) return;
+                    // Don't trigger if clicking on heart button
+                    if (e.target.closest('.heart-btn') || e.target.closest('.remove-btn')) {
+                        return;
+                    }
+                    
                     const ayahNumber = parseInt(container.getAttribute('data-ayah'));
                     toggleAyahAudio(currentSurah, ayahNumber, container);
                 });
             });
-            
-            document.querySelectorAll('.favorite-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent event bubbling
-                    const surah = parseInt(btn.dataset.surah);
-                    const ayah = parseInt(btn.dataset.ayah);
-                    toggleFavorite(surah, ayah, btn);
-                });
-            });
         }
 
-        function toggleFavorite(surah, ayah, button) {
-            const index = favorites.findIndex(fav => fav.surah === surah && fav.ayah === ayah);
-            if (index === -1) {
-                favorites.push({ surah, ayah });
-                button.classList.add('active');
-                // Add heart beat animation
-                button.querySelector('i').classList.add('heartBeat'); // Fixed class name
-                setTimeout(() => {
-                    button.querySelector('i').classList.remove('heartBeat'); // Fixed class name
-                }, 300);
-            } else {
-                favorites.splice(index, 1);
-                button.classList.remove('active');
-            }
-            localStorage.setItem('favorites', JSON.stringify(favorites));
+        // Global function to toggle favorite status
+        window.toggleFavorite = function(event, surah, ayah, button) {
+            event.stopPropagation(); // Prevent triggering ayah click
             
-            // Notify user that favorite was added/removed
-            const action = index === -1 ? 'added to' : 'removed from';
-            const notification = document.createElement('div');
-            notification.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm z-50';
-            notification.textContent = `Ayah ${surah}:${ayah} ${action} favorites`;
-            document.body.appendChild(notification);
+            const isFavorite = isFavorited(surah, ayah);
+            
+            if (isFavorite) {
+                // Remove from favorites
+                favorites = favorites.filter(fav => !(fav.surah === surah && fav.ayah === ayah));
+                button.classList.remove('favorited');
+                showNotification(`Removed Ayah ${surah}:${ayah} from favorites`);
+            } else {
+                // Add to favorites
+                favorites.push({ surah, ayah });
+                button.classList.add('favorited');
+                button.querySelector('i').classList.add('heartBeat');
+                setTimeout(() => {
+                    button.querySelector('i').classList.remove('heartBeat');
+                }, 300);
+                showNotification(`Added Ayah ${surah}:${ayah} to favorites`);
+            }
+            
+            // Save to localStorage
+            saveFavorites();
+        };
+
+        // Global function to remove favorite
+        window.removeFavorite = function(event, surah, ayah, button) {
+            event.stopPropagation(); // Prevent triggering ayah click
+            
+            // Remove from favorites
+            favorites = favorites.filter(fav => !(fav.surah === surah && fav.ayah === ayah));
+            
+            // Save to localStorage
+            saveFavorites();
+            
+            // Animate removal
+            const container = button.closest('.ayah-container');
+            container.style.transition = 'all 0.3s ease';
+            container.style.height = '0';
+            container.style.opacity = '0';
+            container.style.margin = '0';
+            container.style.padding = '0';
+            container.style.overflow = 'hidden';
+            
+            showNotification(`Removed Ayah ${surah}:${ayah} from favorites`);
+            
+            // Refresh favorites after animation
+            setTimeout(() => {
+                displayFavorites();
+            }, 300);
+        };
+
+        // Check if an ayah is favorited
+        function isFavorited(surah, ayah) {
+            return favorites.some(fav => fav.surah === surah && fav.ayah === ayah);
+        }
+
+        // Save favorites to localStorage
+        function saveFavorites() {
+            try {
+                localStorage.setItem('quran_favorites', JSON.stringify(favorites));
+            } catch (e) {
+                console.error('Error saving favorites:', e);
+                showNotification('Error saving favorites');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, duration = 2000) {
+            notificationEl.textContent = message;
+            notificationEl.classList.add('show');
             
             setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => notification.remove(), 500);
-            }, 2000);
+                notificationEl.classList.remove('show');
+            }, duration);
         }
 
+        // Setup all event listeners
         function setupEventListeners() {
             surahSelect.addEventListener('change', () => {
                 const selectedSurah = parseInt(surahSelect.value);
@@ -643,7 +760,9 @@
                 const ayahNumber = parseInt(ayahSelect.value);
                 if (!isNaN(ayahNumber)) {
                     const ayahElement = document.getElementById(`ayah-${ayahNumber}`);
-                    if (ayahElement) ayahElement.scrollIntoView({ behavior: 'smooth' });
+                    if (ayahElement) {
+                        ayahElement.scrollIntoView({ behavior: 'smooth' });
+                    }
                     playAyah(currentSurah, ayahNumber);
                 }
             });
@@ -651,12 +770,16 @@
             fontSizeSlider.addEventListener('input', () => {
                 fontSize = fontSizeSlider.value;
                 fontSizeValue.textContent = fontSize;
-                document.querySelectorAll('.arabic-text').forEach(el => el.style.fontSize = `${fontSize}px`);
+                document.querySelectorAll('.arabic-text').forEach(el => {
+                    el.style.fontSize = `${fontSize}px`;
+                });
             });
             
             fontTypeSelect.addEventListener('change', () => {
                 fontType = fontTypeSelect.value;
-                document.querySelectorAll('.arabic-text').forEach(el => el.style.fontFamily = fontType);
+                document.querySelectorAll('.arabic-text').forEach(el => {
+                    el.style.fontFamily = fontType;
+                });
             });
             
             translationSelect.addEventListener('change', () => {
@@ -670,7 +793,9 @@
                 loadSurah(currentSurah);
             });
             
-            reciterSelect.addEventListener('change', () => currentReciter = reciterSelect.value);
+            reciterSelect.addEventListener('change', () => {
+                currentReciter = reciterSelect.value;
+            });
             
             lightModeBtn.addEventListener('click', () => {
                 document.body.classList.remove('dark', 'beige');
@@ -694,7 +819,9 @@
                 setActiveNavItem(settingsNav);
             });
             
-            closeSettingsBtn.addEventListener('click', () => settingsPanel.classList.remove('active'));
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsPanel.classList.remove('active');
+            });
             
             bookNav.addEventListener('click', () => {
                 setActiveNavItem(bookNav);
@@ -717,17 +844,25 @@
             });
         }
 
+        // Set active navigation item
         function setActiveNavItem(activeItem) {
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
             activeItem.classList.add('active');
         }
 
+        // Initialize settings
         function initializeSettings() {
             const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') document.body.classList.add('dark');
-            else if (savedTheme === 'beige') document.body.classList.add('beige');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark');
+            } else if (savedTheme === 'beige') {
+                document.body.classList.add('beige');
+            }
         }
 
+        // Display favorites
         function displayFavorites() {
             let html = '<div class="surah-header"><h2 class="text-2xl font-bold">Favorite Ayahs</h2></div>';
             
@@ -777,9 +912,9 @@
                                         ${showTranslation ? `<p class="mt-2 text-sm text-[var(--secondary)]">${transData.data.text}</p>` : ''}
                                     </div>
                                 </div>
-                                <div class="remove-favorite" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
+                                <button class="remove-btn" onclick="removeFavorite(event, ${fav.surah}, ${fav.ayah}, this)">
                                     <i class="fas fa-times"></i>
-                                </div>
+                                </button>
                             </div>
                         `;
                     });
@@ -789,75 +924,31 @@
                 })
                 .catch(error => {
                     console.error('Error loading favorites:', error);
-                    surahContainer.innerHTML = html + '<p class="text-center text-[var(--secondary)]">Error loading favorites</p>';
+                    surahContainer.innerHTML = html + '<p class="text-center text-red-500">Error loading favorites. Please try again.</p>';
                 });
         }
 
+        // Setup favorite listeners
         function setupFavoriteListeners() {
             document.querySelectorAll('.ayah-container').forEach(container => {
                 container.addEventListener('click', (e) => {
-                    if (e.target.closest('.remove-favorite')) return;
+                    if (e.target.closest('.remove-btn')) return;
+                    
                     const surah = parseInt(container.dataset.surah);
                     const ayah = parseInt(container.dataset.ayah);
+                    
                     loadSurah(surah);
                     setTimeout(() => {
                         const ayahElement = document.getElementById(`ayah-${ayah}`);
-                        if (ayahElement) ayahElement.scrollIntoView({ behavior: 'smooth' });
+                        if (ayahElement) {
+                            ayahElement.scrollIntoView({ behavior: 'smooth' });
+                        }
                     }, 500);
                 });
             });
-
-            document.querySelectorAll('.remove-favorite').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const surah = parseInt(btn.dataset.surah);
-                    const ayah = parseInt(btn.dataset.ayah);
-                    
-                    // Animate removal
-                    const container = btn.closest('.ayah-container');
-                    container.style.transition = 'all 0.3s ease';
-                    container.style.height = '0';
-                    container.style.opacity = '0';
-                    container.style.margin = '0';
-                    container.style.padding = '0';
-                    container.style.overflow = 'hidden';
-                    
-                    // Remove from favorites
-                    removeFavorite(surah, ayah);
-                    
-                    // Notify user
-                    const notification = document.createElement('div');
-                    notification.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm z-50';
-                    notification.textContent = `Ayah ${surah}:${ayah} removed from favorites`;
-                    document.body.appendChild(notification);
-                    
-                    setTimeout(() => {
-                        notification.style.opacity = '0';
-                        notification.style.transition = 'opacity 0.5s ease';
-                        setTimeout(() => notification.remove(), 500);
-                        
-                        // Refresh favorites display after animation
-                        displayFavorites();
-                    }, 1000);
-                });
-            });
         }
 
-        function removeFavorite(surah, ayah) {
-            const index = favorites.findIndex(fav => fav.surah === surah && fav.ayah === ayah);
-            if (index !== -1) {
-                favorites.splice(index, 1);
-                localStorage.setItem('favorites', JSON.stringify(favorites));
-                
-                // Also update any matching heart buttons in the current view
-                document.querySelectorAll('.favorite-btn').forEach(btn => {
-                    if (parseInt(btn.dataset.surah) === surah && parseInt(btn.dataset.ayah) === ayah) {
-                        btn.classList.remove('active');
-                    }
-                });
-            }
-        }
-
+        // Display search interface
         function displaySearch() {
             const html = `
                 <div class="surah-header">
@@ -892,15 +983,19 @@
             });
         }
 
+        // Search the Quran
         function searchQuran(query, resultsContainer) {
             resultsContainer.innerHTML = '<div class="flex justify-center my-4"><div class="spinner"></div></div>';
+            
             fetch(`${API_BASE_URL}/search/${encodeURIComponent(query)}/all/${currentTranslation}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.data.matches.length > 0) {
                         let html = '';
+                        
                         data.data.matches.forEach(match => {
-                            const isFavorite = favorites.some(fav => fav.surah === match.surah.number && fav.ayah === match.numberInSurah);
+                            const isFavorite = isFavorited(match.surah.number, match.numberInSurah);
+                            
                             html += `
                                 <div class="ayah-container relative" data-surah="${match.surah.number}" data-ayah="${match.numberInSurah}">
                                     <div class="flex items-start space-x-4">
@@ -909,15 +1004,15 @@
                                             <p class="text-sm">${match.text}</p>
                                             <p class="text-xs text-[var(--secondary)]">${match.surah.englishName}</p>
                                         </div>
-                                        <button class="favorite-btn ${isFavorite ? 'active' : ''}" 
-                                                data-surah="${match.surah.number}" 
-                                                data-ayah="${match.numberInSurah}">
+                                        <button class="heart-btn ${isFavorite ? 'favorited' : ''}" 
+                                                onclick="toggleFavorite(event, ${match.surah.number}, ${match.numberInSurah}, this)">
                                             <i class="fas fa-heart"></i>
                                         </button>
                                     </div>
                                 </div>
                             `;
                         });
+                        
                         resultsContainer.innerHTML = html;
                         setupSearchResultListeners();
                     } else {
@@ -926,30 +1021,26 @@
                 })
                 .catch(error => {
                     console.error('Error searching Quran:', error);
-                    resultsContainer.innerHTML = '<p class="text-center text-[var(--secondary)]">Error occurred while searching</p>';
+                    resultsContainer.innerHTML = '<p class="text-center text-red-500">Error occurred while searching. Please try again.</p>';
                 });
         }
 
+        // Setup search result listeners
         function setupSearchResultListeners() {
             document.querySelectorAll('.ayah-container').forEach(container => {
                 container.addEventListener('click', (e) => {
-                    if (e.target.closest('.favorite-btn')) return;
+                    if (e.target.closest('.heart-btn')) return;
+                    
                     const surah = parseInt(container.dataset.surah);
                     const ayah = parseInt(container.dataset.ayah);
+                    
                     loadSurah(surah);
                     setTimeout(() => {
                         const ayahElement = document.getElementById(`ayah-${ayah}`);
-                        if (ayahElement) ayahElement.scrollIntoView({ behavior: 'smooth' });
+                        if (ayahElement) {
+                            ayahElement.scrollIntoView({ behavior: 'smooth' });
+                        }
                     }, 500);
-                });
-            });
-
-            document.querySelectorAll('.favorite-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent event bubbling
-                    const surah = parseInt(btn.dataset.surah);
-                    const ayah = parseInt(btn.dataset.ayah);
-                    toggleFavorite(surah, ayah, btn);
                 });
             });
         }
