@@ -262,11 +262,11 @@
 <body>
     <header class="header">
         <div class="header-content p-4 flex items-center justify-between">
-            <h1 class="text-2xl font-bold text-[var(--primary)]">Quran Reader</h1>
             <div class="selector-container flex space-x-3">
                 <select id="surah-select" class="text-sm"></select>
                 <select id="ayah-select" class="text-sm"></select>
             </div>
+            <h1 class="text-2xl font-bold text-[var(--primary)]">Quran Reader</h1>
         </div>
     </header>
 
@@ -334,9 +334,9 @@
                 <i class="fas fa-book text-xl"></i>
                 <span class="text-xs mt-1">Surah</span>
             </div>
-            <div id="translation-nav" class="nav-item flex flex-col items-center">
-                <i class="fas fa-language text-xl"></i>
-                <span class="text-xs mt-1">Translation</span>
+            <div id="favorites-nav" class="nav-item flex flex-col items-center">
+                <i class="fas fa-star text-xl"></i>
+                <span class="text-xs mt-1">Favorites</span>
             </div>
             <div id="search-nav" class="nav-item flex flex-col items-center">
                 <i class="fas fa-search text-xl"></i>
@@ -363,7 +363,7 @@
         const playAllBtn = document.getElementById('play-all');
         const settingsNav = document.getElementById('settings-nav');
         const bookNav = document.getElementById('book-nav');
-        const translationNav = document.getElementById('translation-nav');
+        const favoritesNav = document.getElementById('favorites-nav');
         const searchNav = document.getElementById('search-nav');
 
         let currentSurah = 1;
@@ -376,6 +376,7 @@
         let fontSize = 22;
         let fontType = "'Scheherazade New', serif";
         let totalAyahs = 0;
+        let favorites = [];
 
         const API_BASE_URL = 'https://api.alquran.cloud/v1';
 
@@ -442,6 +443,7 @@
             if (surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</div>`;
             surah.ayahs.forEach((verse, i) => {
                 const translationVerse = translationData.ayahs[i];
+                const isFavorite = favorites.some(fav => fav.surah === currentSurah && fav.ayah === verse.numberInSurah);
                 html += `
                     <div id="ayah-${verse.numberInSurah}" class="ayah-container" data-ayah="${verse.numberInSurah}">
                         <div class="flex items-start space-x-4">
@@ -450,18 +452,18 @@
                                 <p class="arabic-text" style="font-family: ${fontType}; font-size: ${fontSize}px">${verse.text}</p>
                                 ${showTranslation ? `<p class="mt-2 text-sm text-[var(--secondary)]">${translationVerse.text}</p>` : ''}
                             </div>
+                            <button class="favorite-btn ${isFavorite ? 'text-yellow-400' : 'text-gray-400'}" 
+                                    data-surah="${currentSurah}" 
+                                    data-ayah="${verse.numberInSurah}">
+                                <i class="fas fa-star"></i>
+                            </button>
                         </div>
                     </div>
                 `;
             });
             surahContainer.innerHTML = html;
             surahContainer.appendChild(playAllBtn);
-            document.querySelectorAll('.ayah-container').forEach(container => {
-                container.addEventListener('click', () => {
-                    const ayahNumber = parseInt(container.getAttribute('data-ayah'));
-                    toggleAyahAudio(currentSurah, ayahNumber, container);
-                });
-            });
+            setupAyahListeners();
         }
 
         function playAyah(surah, ayah) {
@@ -494,6 +496,38 @@
                 isAutoPlaying = false;
                 playAyah(surah, ayah);
             }
+        }
+
+        function setupAyahListeners() {
+            document.querySelectorAll('.ayah-container').forEach(container => {
+                container.addEventListener('click', (e) => {
+                    if (e.target.closest('.favorite-btn')) return;
+                    const ayahNumber = parseInt(container.getAttribute('data-ayah'));
+                    toggleAyahAudio(currentSurah, ayahNumber, container);
+                });
+            });
+            
+            document.querySelectorAll('.favorite-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const surah = parseInt(btn.dataset.surah);
+                    const ayah = parseInt(btn.dataset.ayah);
+                    toggleFavorite(surah, ayah, btn);
+                });
+            });
+        }
+
+        function toggleFavorite(surah, ayah, button) {
+            const index = favorites.findIndex(fav => fav.surah === surah && fav.ayah === ayah);
+            if (index === -1) {
+                favorites.push({ surah, ayah });
+                button.classList.remove('text-gray-400');
+                button.classList.add('text-yellow-400');
+            } else {
+                favorites.splice(index, 1);
+                button.classList.remove('text-yellow-400');
+                button.classList.add('text-gray-400');
+            }
+            localStorage.setItem('favorites', JSON.stringify(favorites));
         }
 
         function setupEventListeners() {
@@ -537,13 +571,18 @@
                 setActiveNavItem(settingsNav);
             });
             closeSettingsBtn.addEventListener('click', () => settingsPanel.classList.remove('active'));
-            bookNav.addEventListener('click', () => setActiveNavItem(bookNav));
-            translationNav.addEventListener('click', () => {
-                showTranslation = !showTranslation;
+            bookNav.addEventListener('click', () => {
+                setActiveNavItem(bookNav);
                 loadSurah(currentSurah);
-                setActiveNavItem(translationNav);
             });
-            searchNav.addEventListener('click', () => setActiveNavItem(searchNav));
+            favoritesNav.addEventListener('click', () => {
+                setActiveNavItem(favoritesNav);
+                displayFavorites();
+            });
+            searchNav.addEventListener('click', () => {
+                setActiveNavItem(searchNav);
+                displaySearch();
+            });
             playAllBtn.addEventListener('click', () => {
                 isAutoPlaying = true;
                 playAyah(currentSurah, 1);
@@ -559,9 +598,109 @@
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark');
             else if (savedTheme === 'beige') document.body.classList.add('beige');
+            favorites = JSON.parse(localStorage.getItem('favorites')) || [];
             lightModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'light'));
             darkModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'dark'));
             beigeModeBtn.addEventListener('click', () => localStorage.setItem('theme', 'beige'));
+        }
+
+        function displayFavorites() {
+            let html = '<div class="surah-header"><h2 class="text-2xl font-bold">Favorite Ayahs</h2></div>';
+            if (favorites.length === 0) {
+                html += '<p class="text-center text-[var(--secondary)]">No favorite ayahs yet</p>';
+            } else {
+                favorites.forEach(fav => {
+                    html += `
+                        <div class="ayah-container" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
+                            <div class="flex items-start space-x-4">
+                                <span class="ayah-number text-[var(--primary)] font-bold">${fav.ayah}</span>
+                                <div class="flex-1">
+                                    <p>Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            surahContainer.innerHTML = html;
+            document.querySelectorAll('.ayah-container').forEach(container => {
+                container.addEventListener('click', () => {
+                    const surah = parseInt(container.dataset.surah);
+                    const ayah = parseInt(container.dataset.ayah);
+                    loadSurah(surah);
+                    setTimeout(() => {
+                        const ayahElement = document.getElementById(`ayah-${ayah}`);
+                        if (ayahElement) ayahElement.scrollIntoView({ behavior: 'smooth' });
+                    }, 500);
+                });
+            });
+        }
+
+        function displaySearch() {
+            const html = `
+                <div class="surah-header">
+                    <h2 class="text-2xl font-bold">Search Quran</h2>
+                </div>
+                <div class="card">
+                    <input type="text" id="search-input" placeholder="Enter search term..." class="w-full mb-4">
+                    <button id="search-btn" class="w-full">Search</button>
+                    <div id="search-results" class="mt-4"></div>
+                </div>
+            `;
+            surahContainer.innerHTML = html;
+            
+            const searchBtn = document.getElementById('search-btn');
+            const searchInput = document.getElementById('search-input');
+            const searchResults = document.getElementById('search-results');
+
+            searchBtn.addEventListener('click', () => {
+                const query = searchInput.value.trim();
+                if (query) {
+                    searchQuran(query, searchResults);
+                }
+            });
+        }
+
+        function searchQuran(query, resultsContainer) {
+            resultsContainer.innerHTML = '<div class="flex justify-center my-4"><div class="spinner"></div></div>';
+            fetch(`${API_BASE_URL}/search/${encodeURIComponent(query)}/all/${currentTranslation}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.data.matches.length > 0) {
+                        let html = '';
+                        data.data.matches.forEach(match => {
+                            html += `
+                                <div class="ayah-container" data-surah="${match.surah.number}" data-ayah="${match.numberInSurah}">
+                                    <div class="flex items-start space-x-4">
+                                        <span class="ayah-number text-[var(--primary)] font-bold">${match.surah.number}:${match.numberInSurah}</span>
+                                        <div class="flex-1">
+                                            <p class="text-sm">${match.text}</p>
+                                            <p class="text-xs text-[var(--secondary)]">${match.surah.englishName}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        resultsContainer.innerHTML = html;
+                        setupSearchResultListeners();
+                    } else {
+                        resultsContainer.innerHTML = '<p class="text-center text-[var(--secondary)]">No results found</p>';
+                    }
+                });
+        }
+
+        function setupSearchResultListeners() {
+            document.querySelectorAll('.ayah-container').forEach(container => {
+                container.addEventListener('click', () => {
+                    const surah = parseInt(container.dataset.surah);
+                    const ayah = parseInt(container.dataset.ayah);
+                    loadSurah(surah);
+                    setTimeout(() => {
+                        const ayahElement = document.getElementById(`ayah-${ayah}`);
+                        if (ayahElement) ayahElement.scrollIntoView({ behavior: 'smooth' });
+                    }, 500);
+                });
+            });
         }
     </script>
 </body>
